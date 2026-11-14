@@ -1,38 +1,72 @@
 'use client';
 
-import React, { useState, useEffect, useRef, Suspense } from 'react';
-import { Canvas } from '@react-three/fiber';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import * as THREE from 'three';
-import { MarsGlobe } from './MarsGlobe';
-import { TerrainViewer } from './TerrainViewer';
-import { Starfield } from './Starfield';
 import { MissionHeader } from './MissionHeader';
-import { MapControls } from './MapControls';
-import { LayerControls } from './LayerControls';
-import { RegionInfoPanel } from './RegionInfoPanel';
-import { NavigationSidebar } from './NavigationSidebar';
-import { CoordinateDisplay } from './CoordinateDisplay';
-import { NasaTrekSyncModal } from './NasaTrekSyncModal';
+import { NavigationSidebar, AppPage } from './NavigationSidebar';
 import { MissionPrefaceModal } from './MissionPrefaceModal';
-import { MARS_LANDMARKS, JEZERO_CRATER_TARGET } from '@/lib/marsCoordinates';
-import { JEZERO_LOCAL_FEATURES } from '@/lib/terrainAdapter';
+import { NasaTrekSyncModal } from './NasaTrekSyncModal';
 import { NASATrekEngine } from '@/lib/nasaTrekEngine';
-import { MapViewMode, MapDisplaySettings, MarsLocation } from '@/types/map';
-import { TerrainFeature } from '@/types/terrain';
-import { Loader2, Satellite, Radio } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+
+// Lazy-load all view components to avoid bundling everything upfront
+const DashboardView = lazy(() =>
+  import('./views/DashboardView').then((m) => ({ default: m.DashboardView }))
+);
+const SensorDataView = lazy(() =>
+  import('./views/SensorDataView').then((m) => ({ default: m.SensorDataView }))
+);
+const MissionsView = lazy(() =>
+  import('./views/MissionsView').then((m) => ({ default: m.MissionsView }))
+);
+const CamerasView = lazy(() =>
+  import('./views/CamerasView').then((m) => ({ default: m.CamerasView }))
+);
+const LocationView = lazy(() =>
+  import('./views/LocationView').then((m) => ({ default: m.LocationView }))
+);
+const ScientificLayersView = lazy(() =>
+  import('./views/ScientificLayersView').then((m) => ({ default: m.ScientificLayersView }))
+);
+const HazardAnalysisView = lazy(() =>
+  import('./views/HazardAnalysisView').then((m) => ({ default: m.HazardAnalysisView }))
+);
+const TelemetryView = lazy(() =>
+  import('./views/TelemetryView').then((m) => ({ default: m.TelemetryView }))
+);
+const HealthCheckView = lazy(() =>
+  import('./views/HealthCheckView').then((m) => ({ default: m.HealthCheckView }))
+);
+const MissionLogsView = lazy(() =>
+  import('./views/MissionLogsView').then((m) => ({ default: m.MissionLogsView }))
+);
+const SettingsView = lazy(() =>
+  import('./views/SettingsView').then((m) => ({ default: m.SettingsView }))
+);
+
+function PageLoader() {
+  return (
+    <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-zinc-950 font-mono text-xs text-zinc-400">
+      <Loader2 className="w-8 h-8 text-mars-500 animate-spin" />
+      <span>Loading module...</span>
+    </div>
+  );
+}
 
 export function MarsExplorerApp() {
-  const [viewMode, setViewMode] = useState<MapViewMode>('globe');
-  const [selectedLocation, setSelectedLocation] = useState<MarsLocation>(JEZERO_CRATER_TARGET);
-  const [selectedFeature, setSelectedFeature] = useState<TerrainFeature | null>(
-    JEZERO_LOCAL_FEATURES[0] // Octavia E. Butler Landing site
-  );
-  const [cursorCoords, setCursorCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [activePage, setActivePage] = useState<AppPage>('dashboard');
   const [isNavOpen, setIsNavOpen] = useState(true);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isPrefaceOpen, setIsPrefaceOpen] = useState(true);
 
-  // Check if preface was previously dismissed
+  // NASA texture state (for Location view pass-through)
+  const [activeLayerId, setActiveLayerId] = useState('nasa-viking-mdim21');
+  const [nasaGlobeTexture, setNasaGlobeTexture] = useState<THREE.CanvasTexture | null>(null);
+  const [nasaTerrainTexture, setNasaTerrainTexture] = useState<THREE.CanvasTexture | null>(null);
+  const [isStreamingNASA, setIsStreamingNASA] = useState(false);
+  const [streamProgress, setStreamProgress] = useState(0);
+
+  // Check preface dismissal
   useEffect(() => {
     try {
       if (typeof window !== 'undefined') {
@@ -41,41 +75,14 @@ export function MarsExplorerApp() {
           setIsPrefaceOpen(false);
         }
       }
-    } catch (e) {
+    } catch {
       // ignore
     }
   }, []);
 
-  // Active layers state (default: real NASA Viking MDIM 2.1)
-  const [activeLayerId, setActiveLayerId] = useState('nasa-viking-mdim21');
-  const [activeElevationId, setActiveElevationId] = useState('procedural-jezero-prototype');
-
-  // Real NASA Streamed Textures
-  const [nasaGlobeTexture, setNasaGlobeTexture] = useState<THREE.CanvasTexture | null>(null);
-  const [nasaTerrainTexture, setNasaTerrainTexture] = useState<THREE.CanvasTexture | null>(null);
-  const [isStreamingNASA, setIsStreamingNASA] = useState(false);
-  const [streamProgress, setStreamProgress] = useState(0);
-
-  // Display Settings
-  const [settings, setSettings] = useState<MapDisplaySettings>({
-    showAtmosphere: true,
-    showStarfield: true,
-    autoRotate: false,
-    rotationSpeed: 0.8,
-    showCoordinateGrid: false,
-    showLabels: true,
-    enableTerrainShading: true,
-    elevationExaggeration: 1.25,
-    wireframeMode: false,
-    sunLighting: true,
-    sunAngle: 45,
-  });
-
-  // Camera reset trigger count
-  const [cameraResetKey, setCameraResetKey] = useState(0);
-
-  // Load real NASA Viking/MOLA tiles when layer changes or on mount
+  // NASA texture streaming (only when on location page)
   useEffect(() => {
+    if (activePage !== 'location') return;
     let isMounted = true;
 
     async function streamNASATextures() {
@@ -87,16 +94,12 @@ export function MarsExplorerApp() {
           const tex = await NASATrekEngine.loadRealNASAVikingMosaic((pct) => {
             if (isMounted) setStreamProgress(pct);
           });
-          if (isMounted) {
-            setNasaGlobeTexture(tex);
-          }
+          if (isMounted) setNasaGlobeTexture(tex);
         } else if (activeLayerId === 'nasa-mola-color-relief') {
           const tex = await NASATrekEngine.loadRealNASAMolaMosaic((pct) => {
             if (isMounted) setStreamProgress(pct);
           });
-          if (isMounted) {
-            setNasaGlobeTexture(tex);
-          }
+          if (isMounted) setNasaGlobeTexture(tex);
         } else {
           if (isMounted) setNasaGlobeTexture(null);
         }
@@ -104,9 +107,7 @@ export function MarsExplorerApp() {
         const jezeroTex = await NASATrekEngine.loadRealNASAJezeroTerrain(
           activeLayerId === 'nasa-mola-color-relief' ? 'mola' : 'viking'
         );
-        if (isMounted) {
-          setNasaTerrainTexture(jezeroTex);
-        }
+        if (isMounted) setNasaTerrainTexture(jezeroTex);
       } catch (err) {
         console.warn('NASA streaming note:', err);
       } finally {
@@ -118,177 +119,88 @@ export function MarsExplorerApp() {
     }
 
     streamNASATextures();
-
     return () => {
       isMounted = false;
     };
-  }, [activeLayerId]);
+  }, [activeLayerId, activePage]);
 
-  const handleSelectLocation = (location: MarsLocation) => {
-    setSelectedLocation(location);
-    if (location.id === 'jezero-crater') {
-      setViewMode('jezero-orbit');
-    } else {
-      setViewMode('globe');
+  // Navigate handler passed to child views
+  const handleNavigate = (page: string) => {
+    setActivePage(page as AppPage);
+  };
+
+  const renderActivePage = () => {
+    switch (activePage) {
+      case 'dashboard':
+        return <DashboardView onNavigate={handleNavigate} />;
+      case 'sensors':
+        return <SensorDataView />;
+      case 'missions':
+        return <MissionsView />;
+      case 'cameras':
+        return <CamerasView />;
+      case 'location':
+        return (
+          <LocationView
+            overrideTexture={nasaGlobeTexture}
+            overrideTerrainTexture={nasaTerrainTexture}
+            isStreamingNASA={isStreamingNASA}
+            streamProgress={streamProgress}
+          />
+        );
+      case 'layers':
+        return <ScientificLayersView />;
+      case 'hazards':
+        return <HazardAnalysisView />;
+      case 'telemetry':
+        return <TelemetryView />;
+      case 'health':
+        return <HealthCheckView />;
+      case 'logs':
+        return <MissionLogsView />;
+      case 'settings':
+        return <SettingsView />;
+      default:
+        return <DashboardView onNavigate={handleNavigate} />;
     }
-  };
-
-  const handleResetCamera = () => {
-    setCameraResetKey((prev) => prev + 1);
-  };
-
-  const handleZoom = (deltaFactor: number) => {
-    // Zoom trigger
   };
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-zinc-950 text-white font-sans flex flex-col select-none">
-      {/* 1. Top Navigation */}
+      {/* 1. Top Header */}
       <MissionHeader
-        viewMode={viewMode}
-        dataSource={
-          activeLayerId === 'nasa-viking-mdim21'
-            ? 'NASA Trek Viking MDIM 2.1 (Live)'
-            : activeLayerId === 'nasa-mola-color-relief'
-            ? 'NASA Trek MGS MOLA (Live)'
-            : 'Procedural Analytical Canvas'
-        }
-        onOpenSyncModal={() => setIsSyncModalOpen(true)}
         onOpenPreface={() => setIsPrefaceOpen(true)}
+        onOpenSyncModal={() => setIsSyncModalOpen(true)}
         isStreamingNASA={isStreamingNASA}
       />
 
-      {/* 2. Main Viewport Container */}
-      <div className="relative flex-1 w-full h-[calc(100vh-5.5rem)]">
+      {/* 2. Main Content Area */}
+      <div className="relative flex-1 w-full overflow-hidden">
         {/* Left Sidebar */}
         <NavigationSidebar
-          selectedLocation={selectedLocation}
-          onSelectLocation={handleSelectLocation}
-          viewMode={viewMode}
-          onSetViewMode={setViewMode}
+          activePage={activePage}
+          onNavigate={setActivePage}
           isOpen={isNavOpen}
           onToggle={() => setIsNavOpen(!isNavOpen)}
         />
 
-        {/* Real NASA Live Streaming HUD Banner */}
-        {isStreamingNASA && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-zinc-950/90 backdrop-blur-md border border-mars-500/80 px-4 py-1.5 rounded-full shadow-[0_0_20px_rgba(217,83,47,0.4)] flex items-center gap-2.5 font-mono text-xs">
-            <Radio className="w-3.5 h-3.5 text-mars-400 animate-pulse" />
-            <span className="text-zinc-200">
-              Streaming Real NASA Mars Trek Tiles: <strong className="text-amber-400">{streamProgress}%</strong>
-            </span>
-          </div>
-        )}
-
-        {/* 3D WebGL Canvas */}
-        <Suspense
-          fallback={
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-zinc-950 font-mono text-xs text-zinc-400">
-              <Loader2 className="w-8 h-8 text-mars-500 animate-spin" />
-              <span>Initializing Martian 3D Terrain Engine...</span>
-            </div>
-          }
-        >
-          <Canvas
-            key={`${viewMode}-${cameraResetKey}`}
-            camera={
-              viewMode === 'jezero-terrain'
-                ? { position: [0, 8, 12], fov: 45, near: 0.1, far: 1000 }
-                : { position: [0, 1.2, 5.2], fov: 45, near: 0.1, far: 1000 }
-            }
-            gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-            className="w-full h-full cursor-grab active:cursor-grabbing"
-          >
-            {settings.showStarfield && <Starfield count={2800} />}
-
-            {viewMode === 'jezero-terrain' ? (
-              <TerrainViewer
-                settings={settings}
-                selectedFeature={selectedFeature}
-                onSelectFeature={setSelectedFeature}
-                onCursorCoordinates={setCursorCoords}
-                overrideTexture={nasaTerrainTexture}
-              />
-            ) : (
-              <MarsGlobe
-                selectedLocation={selectedLocation}
-                onSelectLocation={handleSelectLocation}
-                onCursorCoordinates={setCursorCoords}
-                settings={settings}
-                globeRadius={2.0}
-                isFocusedOnJezero={viewMode === 'jezero-orbit'}
-                overrideTexture={nasaGlobeTexture}
-              />
-            )}
-          </Canvas>
-        </Suspense>
-
-        {/* Floating HUD Reticle in center */}
-        <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-          <div className="relative w-8 h-8 opacity-25">
-            <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-mars-400 -translate-y-1/2" />
-            <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-mars-400 -translate-x-1/2" />
-          </div>
-        </div>
-
-        {/* Floating Layer Controls (Top Left near sidebar) */}
-        <div
-          className={`absolute top-4 transition-all duration-300 z-10 ${
-            isNavOpen ? 'left-76 md:left-80' : 'left-16'
+        {/* Page Content */}
+        <main
+          className={`absolute top-0 bottom-0 right-0 transition-all duration-300 overflow-hidden ${
+            isNavOpen ? 'left-64' : 'left-12'
           }`}
         >
-          <LayerControls
-            activeLayerId={activeLayerId}
-            onSelectLayer={setActiveLayerId}
-            activeElevationId={activeElevationId}
-            onSelectElevation={setActiveElevationId}
-          />
-        </div>
-
-        {/* Floating Map Interaction Controls (Bottom Left) */}
-        <div
-          className={`absolute bottom-4 transition-all duration-300 z-10 ${
-            isNavOpen ? 'left-76 md:left-80' : 'left-16'
-          }`}
-        >
-          <MapControls
-            viewMode={viewMode}
-            onSetViewMode={setViewMode}
-            settings={settings}
-            onUpdateSettings={setSettings}
-            onResetCamera={handleResetCamera}
-            onZoomIn={() => handleZoom(0.8)}
-            onZoomOut={() => handleZoom(1.2)}
-          />
-        </div>
-
-        {/* Floating Region Information Panel (Top/Middle Right) */}
-        <div className="absolute top-4 right-4 z-10 hidden sm:block">
-          <RegionInfoPanel
-            location={selectedLocation}
-            selectedFeature={selectedFeature}
-            viewMode={viewMode}
-            onSetViewMode={setViewMode}
-            onSelectFeature={setSelectedFeature}
-          />
-        </div>
+          <Suspense fallback={<PageLoader />}>{renderActivePage()}</Suspense>
+        </main>
       </div>
 
-      {/* 3. Bottom Status Bar */}
-      <CoordinateDisplay
-        cursorCoords={cursorCoords}
-        selectedCoords={selectedLocation?.coordinates}
-        viewMode={viewMode}
-        sunAngle={settings.sunAngle}
-      />
-
-      {/* 4. Mission Preface & Briefing Modal (Shows on startup or via header button) */}
+      {/* 3. Mission Preface Modal */}
       <MissionPrefaceModal
         isOpen={isPrefaceOpen}
         onEnter={() => setIsPrefaceOpen(false)}
       />
 
-      {/* 5. NASA Mars Trek Live Sync Modal */}
+      {/* 4. NASA Trek Sync Modal */}
       <NasaTrekSyncModal
         isOpen={isSyncModalOpen}
         onClose={() => setIsSyncModalOpen(false)}

@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # PostgreSQL with PostGIS extension for spatial Mars coordinates
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: mars_pathfinder_postgis
+    restart: always
+    environment:
+      POSTGRES_USER: pathfinder
+      POSTGRES_PASSWORD: mars2026password
+      POSTGRES_DB: mars_pathfinder
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pathfinder -d mars_pathfinder"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Mission Control Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mars_pathfinder_api
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://pathfinder:mars2026password@db:5432/mars_pathfinder
+      - NASA_API_KEY=${NASA_API_KEY:-DEMO_KEY}
+      - SECRET_KEY=${SECRET_KEY:-mars-pathfinder-ai-secret-key-2026-supersecure}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-flight-director}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-PathfinderMars2026!}
+      - DEMO_MODE=true
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+
+volumes:
+  postgres_data:
