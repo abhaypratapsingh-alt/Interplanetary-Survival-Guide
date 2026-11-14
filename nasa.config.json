@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "project": "Mars Pathfinder AI",
+  "challenge": "NASA Space Apps Challenge 2026",
+  "missionTarget": "Jezero Crater (18.38° N, 77.58° E)",
+  "activeConfiguration": "prototype",
+  "configurations": {
+    "prototype": {
+      "name": "Procedural Geomorphic Simulation",
+      "description": "High-fidelity analytical 3D model of Jezero Crater for offline and high-performance client rendering without API keys.",
+      "elevationSource": "procedural-jezero-prototype",
+      "imageryLayer": "procedural-scientific-layer"
+    },
+    "nasa_trek_wmts": {
+      "name": "NASA Solar System Treks WMTS Service",
+      "description": "Real-time Web Map Tile Service stream from NASA JPL Trek API.",
+      "baseUrl": "https://trek.nasa.gov/tiles/Mars/EQ/",
+      "capabilitiesUrl": "https://trek.nasa.gov/tiles/Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m/1.0.0/WMTSCapabilities.xml",
+      "tileMatrixSet": "default028mm",
+      "format": "image/jpeg",
+      "instructions": "No API key required for public Trek tiles. Add layer URL in nasaLayerAdapter.ts."
+    },
+    "usgs_pds_geotiff": {
+      "name": "USGS Astrogeology / PDS Geosciences GeoTIFF DEM",
+      "description": "Raw 32-bit floating point Digital Elevation Models from MGS MOLA and MRO HiRISE.",
+      "molaMegdrUrl": "https://pds-geosciences.wustl.edu/mgs/mgs-m-mola-5-megdr-l3-v1/mgsl_300x/meg004/megt90n000cb.img",
+      "hiriseJezeroDtm": "https://www.uahirise.org/dtm/dtm.php?ID=PSP_002387_1985",
+      "instructions": "Place downloaded GeoTIFF file (.tif) into /public/data/terrain/ and configure loadNASAGeoTIFF() in terrainAdapter.ts."
+    }
+  }
+}
