@@ -44,4 +44,5 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     username: str
+    email: Optional[str] = None
     role: str = "admin"

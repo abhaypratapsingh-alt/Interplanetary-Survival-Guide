@@ -23,8 +23,9 @@ class Settings(BaseModel):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 # 24 hours
     
-    ADMIN_USERNAME: str = os.getenv("ADMIN_USERNAME", "flight-director")
-    ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "PathfinderMars2026!")
+    ADMIN_USERNAME: str = os.getenv("ADMIN_USERNAME", "abhay1307")
+    ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "Abhay@0980")
+    ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "abhaypratapsingh@gmail.com")
     
     # CORS Origins
     CORS_ORIGINS: list[str] = [
