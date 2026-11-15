@@ -186,11 +186,13 @@ export function MarsExplorerApp() {
 
         {/* Page Content */}
         <main
-          className={`absolute top-0 bottom-0 right-0 transition-all duration-300 overflow-hidden ${
+          className={`absolute top-0 bottom-0 right-0 transition-all duration-300 overflow-hidden flex flex-col ${
             isNavOpen ? 'left-64' : 'left-12'
           }`}
         >
-          <Suspense fallback={<PageLoader />}>{renderActivePage()}</Suspense>
+          <div className="flex-1 overflow-hidden relative">
+            <Suspense fallback={<PageLoader />}>{renderActivePage()}</Suspense>
+          </div>
         </main>
       </div>
 

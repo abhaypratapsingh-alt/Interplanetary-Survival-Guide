@@ -84,7 +84,7 @@ export function LocationView({
   };
 
   return (
-    <div className="relative w-full h-[calc(100vh-3.5rem)] flex flex-col font-mono select-none overflow-hidden bg-black">
+    <div className="relative w-full h-full flex flex-col font-mono select-none overflow-hidden bg-black">
       {/* Search & Top Coordinates Ribbon */}
       <div className="absolute top-3 left-4 z-20 flex items-center gap-2 max-w-md w-full">
         <div className="relative flex-1">

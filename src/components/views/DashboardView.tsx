@@ -106,7 +106,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
   ];
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 font-mono select-none text-zinc-300">
+    <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6 font-mono select-none text-zinc-300">
       {/* 1. Mission Header Ribbon / Rover Operation Telemetry (Curiosity & Perseverance Ref 1 style) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 p-4 rounded-xl bg-zinc-950/80 border border-zinc-800/90 shadow-2xl backdrop-blur-md">
         <div className="flex flex-col gap-1">
