@@ -26,6 +26,7 @@ export type AppPage =
   | 'dashboard'
   | 'sensors'
   | 'missions'
+  | 'mission-control'
   | 'cameras'
   | 'location'
   | 'layers'
@@ -40,10 +41,12 @@ interface NavigationSidebarProps {
   onNavigate: (page: AppPage) => void;
   isOpen: boolean;
   onToggle: () => void;
+  isAdmin?: boolean;
 }
 
-const NAV_ITEMS: { id: AppPage; label: string; icon: React.ElementType; description: string; group: string }[] = [
+const NAV_ITEMS: { id: AppPage; label: string; icon: React.ElementType; description: string; group: string; adminOnly?: boolean }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Mission overview & KPIs', group: 'command' },
+  { id: 'mission-control', label: 'Mission Control', icon: ShieldAlert, description: 'Astronauts & Minerals Admin', group: 'command', adminOnly: true },
   { id: 'sensors', label: 'Sensor Data', icon: Gauge, description: 'Environmental telemetry', group: 'command' },
   { id: 'missions', label: 'Missions', icon: Rocket, description: 'Mission planning & tasks', group: 'command' },
   { id: 'cameras', label: 'Cameras', icon: Camera, description: 'NASA rover imagery', group: 'science' },
@@ -67,8 +70,12 @@ export function NavigationSidebar({
   onNavigate,
   isOpen,
   onToggle,
+  isAdmin = false,
 }: NavigationSidebarProps) {
   const groups = ['command', 'science', 'systems'];
+
+  // Filter out admin-only items if not admin (or show locked state)
+  const visibleItems = NAV_ITEMS.filter(item => !item.adminOnly || isAdmin);
 
   return (
     <aside
@@ -102,7 +109,7 @@ export function NavigationSidebar({
       {/* Collapsed icon-only rail */}
       {!isOpen && (
         <div className="flex-1 overflow-y-auto py-2 flex flex-col items-center gap-1">
-          {NAV_ITEMS.map((item) => {
+          {visibleItems.map((item) => {
             const Icon = item.icon;
             const isActive = activePage === item.id;
             return (
@@ -131,7 +138,7 @@ export function NavigationSidebar({
               <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-600 px-2 mb-0.5">
                 {GROUP_LABELS[group]}
               </span>
-              {NAV_ITEMS.filter((item) => item.group === group).map((item) => {
+              {visibleItems.filter((item) => item.group === group).map((item) => {
                 const Icon = item.icon;
                 const isActive = activePage === item.id;
                 return (

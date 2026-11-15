@@ -19,6 +19,9 @@ const SensorDataView = lazy(() =>
 const MissionsView = lazy(() =>
   import('./views/MissionsView').then((m) => ({ default: m.MissionsView }))
 );
+const MissionControlView = lazy(() =>
+  import('./views/MissionControlView').then((m) => ({ default: m.MissionControlView }))
+);
 const CamerasView = lazy(() =>
   import('./views/CamerasView').then((m) => ({ default: m.CamerasView }))
 );
@@ -58,6 +61,22 @@ export function MarsExplorerApp() {
   const [isNavOpen, setIsNavOpen] = useState(true);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isPrefaceOpen, setIsPrefaceOpen] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check admin status
+  useEffect(() => {
+    async function checkAdmin() {
+      try {
+        const me = await import('@/lib/apiClient').then(m => m.api.getAuthMe());
+        if (me && me.role === 'admin') {
+          setIsAdmin(true);
+        }
+      } catch (e) {
+        setIsAdmin(false);
+      }
+    }
+    checkAdmin();
+  }, [activePage]);
 
   // NASA texture state (for Location view pass-through)
   const [activeLayerId, setActiveLayerId] = useState('nasa-viking-mdim21');
@@ -133,6 +152,8 @@ export function MarsExplorerApp() {
     switch (activePage) {
       case 'dashboard':
         return <DashboardView onNavigate={handleNavigate} />;
+      case 'mission-control':
+        return <MissionControlView onNavigate={handleNavigate} />;
       case 'sensors':
         return <SensorDataView />;
       case 'missions':
@@ -182,6 +203,7 @@ export function MarsExplorerApp() {
           onNavigate={setActivePage}
           isOpen={isNavOpen}
           onToggle={() => setIsNavOpen(!isNavOpen)}
+          isAdmin={isAdmin}
         />
 
         {/* Page Content */}

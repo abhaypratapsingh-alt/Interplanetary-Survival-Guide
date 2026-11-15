@@ -255,6 +255,55 @@ class ApiClient {
   public async getAuthMe() {
     return this.request<any>('/auth/me');
   }
+
+  // Mission Control Admin APIs
+  public async getAdminMissions(status?: string) {
+    const query = status && status !== 'all' ? `?status=${status}` : '';
+    return this.request<any[]>(`/mission-control/missions${query}`);
+  }
+
+  public async getAdminMission(missionId: number) {
+    return this.request<any>(`/mission-control/missions/${missionId}`);
+  }
+
+  public async createAdminMission(data: any) {
+    return this.request<any>('/mission-control/missions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  public async getAstronautTelemetryHistory(astronautId: number, limit: number = 25) {
+    return this.request<any[]>(`/mission-control/astronauts/${astronautId}/telemetry?limit=${limit}`);
+  }
+
+  public async tickAstronautTelemetry(astronautId: number) {
+    return this.request<any>(`/mission-control/astronauts/${astronautId}/telemetry-tick`, {
+      method: 'POST',
+    });
+  }
+
+  public async getMissionMinerals(missionId: number) {
+    return this.request<any[]>(`/mission-control/missions/${missionId}/minerals`);
+  }
+
+  public async createMissionMineral(missionId: number, data: any) {
+    return this.request<any>(`/mission-control/missions/${missionId}/minerals`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  public async getMissionEvents(missionId: number) {
+    return this.request<any[]>(`/mission-control/missions/${missionId}/events`);
+  }
+
+  public async createMissionEvent(missionId: number, data: any) {
+    return this.request<any>(`/mission-control/missions/${missionId}/events`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 export const api = new ApiClient();

@@ -9,12 +9,18 @@ class Mission(Base):
     id = Column(Integer, primary_key=True, index=True)
     code = Column(String(50), unique=True, index=True, nullable=False)
     name = Column(String(150), nullable=False)
-    status = Column(String(30), default="active", index=True) # active, planned, completed, paused
+    status = Column(String(30), default="active", index=True) # active, planned, completed, paused, failed
     region = Column(String(100), default="Jezero Crater")
+    destination_planet = Column(String(50), default="Mars")
+    created_by_admin = Column(String(100), default="abhay1307")
+    target_coordinates_lat = Column(Float, default=18.38)
+    target_coordinates_lon = Column(Float, default=77.58)
     sol_start = Column(Integer, default=1)
     sol_end = Column(Integer, nullable=True)
     start_date = Column(DateTime, default=datetime.utcnow)
     end_date = Column(DateTime, nullable=True)
+    duration_days = Column(Integer, default=45)
+    last_telemetry_update = Column(DateTime, default=datetime.utcnow)
     objectives = Column(Text, nullable=True)
     scientific_targets = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
@@ -23,6 +29,9 @@ class Mission(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     tasks = relationship("MissionTask", back_populates="mission", cascade="all, delete-orphan")
+    astronauts = relationship("Astronaut", back_populates="mission", cascade="all, delete-orphan")
+    mineral_discoveries = relationship("MineralDiscovery", back_populates="mission", cascade="all, delete-orphan")
+    events = relationship("MissionEvent", back_populates="mission", cascade="all, delete-orphan")
 
 class MissionTask(Base):
     __tablename__ = "mission_tasks"

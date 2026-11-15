@@ -1,4 +1,11 @@
 from app.models.mission import Mission, MissionTask
+from app.models.mission_control import (
+    Astronaut,
+    AstronautTelemetry,
+    MineralDiscovery,
+    MissionEvent,
+    HealthAlert,
+)
 from app.models.sensor import Sensor, SensorReading
 from app.models.camera import CameraImage
 from app.models.location import ExplorationLocation
@@ -11,6 +18,11 @@ from app.models.setting import AppSetting
 __all__ = [
     "Mission",
     "MissionTask",
+    "Astronaut",
+    "AstronautTelemetry",
+    "MineralDiscovery",
+    "MissionEvent",
+    "HealthAlert",
     "Sensor",
     "SensorReading",
     "CameraImage",

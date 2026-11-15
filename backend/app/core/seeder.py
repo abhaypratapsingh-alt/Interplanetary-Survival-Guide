@@ -4,6 +4,11 @@ from sqlalchemy.orm import Session
 from app.models import (
     Mission,
     MissionTask,
+    Astronaut,
+    AstronautTelemetry,
+    MineralDiscovery,
+    MissionEvent,
+    HealthAlert,
     Sensor,
     SensorReading,
     CameraImage,
@@ -16,11 +21,14 @@ from app.models import (
 )
 
 def seed_database(db: Session):
-    # Check if already seeded
-    if db.query(Sensor).first():
+    # Check if mission control already seeded
+    if db.query(Astronaut).first():
         return
 
-    print("[Seeder] Populating database with realistic NASA Mars telemetry & mission data...")
+    # Check if basic tables already seeded
+    base_seeded = db.query(Sensor).first() is not None
+    if not base_seeded:
+        print("[Seeder] Populating database with realistic NASA Mars telemetry & mission data...")
 
     # 1. Sensors
     sensors_data = [
@@ -609,3 +617,301 @@ def seed_database(db: Session):
 
     db.commit()
     print("[Seeder] Successfully populated database with mission records!")
+
+    # 10. Seed Mission Control Astronauts, Telemetry, Minerals & Events
+    seed_mission_control(db)
+
+def seed_mission_control(db: Session):
+    if db.query(Astronaut).first():
+        return
+
+    print("[Seeder] Populating Mission Control astronauts, health biometrics, and mineral discoveries...")
+    
+    # Fetch existing missions or create them
+    m1 = db.query(Mission).filter(Mission.code == "MARS-2026-JZ").first()
+    if not m1:
+        m1 = Mission(
+            code="MARS-2026-JZ",
+            name="Jezero Fan Delta Astrobiology Expedition",
+            status="active",
+            region="Jezero Crater (Western Delta)",
+            destination_planet="Mars",
+            created_by_admin="abhay1307",
+            target_coordinates_lat=18.38,
+            target_coordinates_lon=77.58,
+            duration_days=90,
+            objectives="Human-assisted sampling of fine-grained delta mudstones and search for ancient fossilized biosignatures.",
+            progress_percent=68.5,
+            start_date=datetime.utcnow() - timedelta(days=42),
+            last_telemetry_update=datetime.utcnow()
+        )
+        db.add(m1)
+        db.flush()
+    else:
+        m1.created_by_admin = "abhay1307"
+        m1.destination_planet = "Mars"
+        m1.target_coordinates_lat = 18.38
+        m1.target_coordinates_lon = 77.58
+        m1.duration_days = 90
+        m1.last_telemetry_update = datetime.utcnow()
+
+    m2 = db.query(Mission).filter(Mission.code == "PERSEVERANCE-RIM").first()
+    if m2:
+        m2.created_by_admin = "abhay1307"
+        m2.destination_planet = "Mars"
+        m2.target_coordinates_lat = 18.45
+        m2.target_coordinates_lon = 77.62
+        m2.duration_days = 120
+        m2.last_telemetry_update = datetime.utcnow()
+
+    # Create Astronauts for Mission 1
+    a1 = Astronaut(
+        mission_id=m1.id,
+        name="Cmdr. Abhay Pratap Singh",
+        callsign="Pathfinder-1",
+        role="Mission Commander & Astrobiologist",
+        blood_type="O+",
+        status="nominal",
+        suit_id="EVA-MK4-CMD",
+        avatar_url="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
+    )
+    a2 = Astronaut(
+        mission_id=m1.id,
+        name="Dr. Elena Vance",
+        callsign="Geology-Lead",
+        role="Chief Planetary Geochemist",
+        blood_type="A+",
+        status="nominal",
+        suit_id="EVA-MK4-GEO",
+        avatar_url="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
+    )
+    a3 = Astronaut(
+        mission_id=m1.id,
+        name="Lt. Marcus Chen",
+        callsign="Vector-Zero",
+        role="Flight Engineer & EVA Specialist",
+        blood_type="B+",
+        status="warning",
+        suit_id="EVA-MK4-ENG",
+        avatar_url="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80"
+    )
+    db.add_all([a1, a2, a3])
+    db.flush()
+
+    # Seed Telemetry for each astronaut (historical 20 ticks)
+    now = datetime.utcnow()
+    astronaut_profiles = [
+        (a1, 74.0, 22.0, 94.0, 96.0, 16.0, 29.6, 98.6, 1.25, 36.8, "Normal - All Vitals Nominal"),
+        (a2, 82.0, 31.0, 89.0, 92.0, 24.0, 29.5, 97.8, 1.35, 36.9, "Normal - Core Drilling Operations"),
+        (a3, 118.0, 68.0, 78.0, 81.0, 54.0, 29.4, 94.2, 1.85, 37.2, "Warning - High Exertion on Steep Scarp Traverse")
+    ]
+
+    for astro, base_hr, base_stress, base_alert, base_cog, base_fatigue, suit_p, o2_lvl, o2_cons, body_temp, med_warn in astronaut_profiles:
+        for i in range(20):
+            t = now - timedelta(minutes=(20 - i) * 3)
+            hr = round(base_hr + (random.random() - 0.5) * 8.0, 1)
+            hr_stat = "normal" if hr < 105 else "warning" if hr < 125 else "critical"
+            tel = AstronautTelemetry(
+                astronaut_id=astro.id,
+                timestamp=t,
+                heart_rate_bpm=hr,
+                heart_rate_status=hr_stat,
+                stress_level=round(base_stress + (random.random() - 0.5) * 5.0, 1),
+                alertness_level=round(base_alert + (random.random() - 0.5) * 3.0, 1),
+                cognitive_performance=round(base_cog + (random.random() - 0.5) * 2.5, 1),
+                mental_fatigue=round(base_fatigue + (random.random() - 0.5) * 4.0, 1),
+                eeg_alpha=round(10.2 + (random.random() - 0.5) * 1.5, 2),
+                eeg_beta=round(18.5 + (random.random() - 0.5) * 2.5, 2),
+                eeg_theta=round(5.4 + (random.random() - 0.5) * 1.0, 2),
+                eeg_signal_status="synchronized" if hr < 115 else "high_stress",
+                movement_state="active_walk" if i % 2 == 0 else "core_drilling",
+                activity_level=round(50.0 + random.random() * 35.0, 1),
+                steps_count=3500 + i * 45,
+                suit_pressure_kpa=suit_p,
+                oxygen_level_pct=round(o2_lvl - i * 0.05, 1),
+                oxygen_consumption_l_min=o2_cons,
+                suit_temp_c=21.4,
+                co2_level_mmhg=round(2.1 + (random.random() - 0.5) * 0.3, 2),
+                suit_integrity_status="sealed_nominal",
+                body_temp_c=body_temp,
+                overall_health_score=round(98.0 - (base_stress / 5.0) - (hr > 110) * 8.0, 1),
+                medical_warning=med_warn,
+                is_simulated=True
+            )
+            db.add(tel)
+
+        if astro.status == "warning":
+            al = HealthAlert(
+                astronaut_id=astro.id,
+                timestamp=now - timedelta(minutes=15),
+                parameter="heart_rate",
+                severity="warning",
+                message=f"Tachycardia alert: Sustained 118 BPM during scarp boulder extraction.",
+                value_recorded=118.0,
+                threshold_limit=110.0,
+                is_resolved=False
+            )
+            db.add(al)
+
+    # Seed Mineral Discoveries
+    minerals_data = [
+        MineralDiscovery(
+            mission_id=m1.id,
+            name="Iron-Rich Smectite Clay",
+            mineral_type="Phyllosilicate / Clay",
+            quantity_discovered_kg=4.85,
+            discovery_lat=18.412,
+            discovery_lon=77.395,
+            elevation_m=-2570.0,
+            discovery_time=now - timedelta(days=12),
+            chemical_formula="(Fe,Mg)3Si4O10(OH)2",
+            mineral_composition="SiO2: 48.2%, Fe2O3: 24.6%, Al2O3: 11.2%, MgO: 6.4%, H2O: 9.6%",
+            scientific_importance="Formed under neutral alkaline lake waters. Supreme biosignature preservation matrix capable of retaining organic carbon chains for billions of years.",
+            sample_image_url="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&auto=format&fit=crop&q=80",
+            verification_status="lab_confirmed",
+            purity_pct=94.2,
+            discovered_by_astronaut="Cmdr. Abhay Pratap Singh",
+            is_simulated=True
+        ),
+        MineralDiscovery(
+            mission_id=m1.id,
+            name="Hydromagnesite (Marginal Carbonate)",
+            mineral_type="Carbonate",
+            quantity_discovered_kg=3.10,
+            discovery_lat=18.438,
+            discovery_lon=77.420,
+            elevation_m=-2520.0,
+            discovery_time=now - timedelta(days=6),
+            chemical_formula="Mg5(CO3)4(OH)2·4H2O",
+            mineral_composition="MgO: 43.1%, CO2: 36.4%, H2O: 20.5%",
+            scientific_importance="Precipitated directly along ancient shoreline of Jezero paleolake. Traps microbial stromatolite textures and records ancient atmospheric CO2 pressure.",
+            sample_image_url="https://images.unsplash.com/photo-1599818496337-34dc94d5ae21?w=400&auto=format&fit=crop&q=80",
+            verification_status="verified_spectrometry",
+            purity_pct=89.6,
+            discovered_by_astronaut="Dr. Elena Vance",
+            is_simulated=True
+        ),
+        MineralDiscovery(
+            mission_id=m1.id,
+            name="Hydrated Opaline Silica",
+            mineral_type="Silica (Hydrated)",
+            quantity_discovered_kg=1.85,
+            discovery_lat=18.428,
+            discovery_lon=77.382,
+            elevation_m=-2550.0,
+            discovery_time=now - timedelta(days=2),
+            chemical_formula="SiO2·nH2O",
+            mineral_composition="SiO2: 88.4%, H2O: 9.8%, Trace Fe: 1.8%",
+            scientific_importance="Diagnostic of hydrothermal hot-spring discharge or deltaic sinter terraces. Premier target for micro-fossil entrapment.",
+            sample_image_url="https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=400&auto=format&fit=crop&q=80",
+            verification_status="verified_spectrometry",
+            purity_pct=91.4,
+            discovered_by_astronaut="Cmdr. Abhay Pratap Singh",
+            is_simulated=True
+        ),
+        MineralDiscovery(
+            mission_id=m1.id,
+            name="Olivine Cumulate Basalt",
+            mineral_type="Igneous / Basalt",
+            quantity_discovered_kg=6.40,
+            discovery_lat=18.448,
+            discovery_lon=77.460,
+            elevation_m=-2590.0,
+            discovery_time=now - timedelta(days=20),
+            chemical_formula="(Mg,Fe)2SiO4",
+            mineral_composition="Forsterite: 68%, Fayalite: 32%",
+            scientific_importance="Crustal basement rock unit of Séítah floor. Provides radiometric age dating for the timing of Jezero impact basin formation.",
+            sample_image_url="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&auto=format&fit=crop&q=80",
+            verification_status="lab_confirmed",
+            purity_pct=96.1,
+            discovered_by_astronaut="Lt. Marcus Chen",
+            is_simulated=True
+        ),
+        MineralDiscovery(
+            mission_id=m1.id,
+            name="Hydrothermal Gypsum Vein Outcrop",
+            mineral_type="Sulfate",
+            quantity_discovered_kg=2.45,
+            discovery_lat=18.395,
+            discovery_lon=77.340,
+            elevation_m=-2490.0,
+            discovery_time=now - timedelta(hours=18),
+            chemical_formula="CaSO4·2H2O",
+            mineral_composition="CaO: 32.5%, SO3: 46.5%, H2O: 21.0%",
+            scientific_importance="Cross-cutting fracture veins showing subsurface water circulation occurring after the paleolake dried up.",
+            sample_image_url="https://images.unsplash.com/photo-1563089145-599997674d42?w=400&auto=format&fit=crop&q=80",
+            verification_status="verified_spectrometry",
+            purity_pct=84.3,
+            discovered_by_astronaut="Dr. Elena Vance",
+            is_simulated=True
+        )
+    ]
+    db.add_all(minerals_data)
+
+    # Seed Timeline Events
+    events_data = [
+        MissionEvent(
+            mission_id=m1.id,
+            event_type="creation",
+            title="Mission Authorized by Space Command",
+            description="MARS-2026-JZ flight authorization signed by Lead Flight Director abhay1307.",
+            severity="info",
+            timestamp=now - timedelta(days=45),
+            coordinates_lat=18.38,
+            coordinates_lon=77.58
+        ),
+        MissionEvent(
+            mission_id=m1.id,
+            event_type="launch",
+            title="Interplanetary Transfer Insertion (Earth Departure)",
+            description="Starship Ares-3 trans-Mars injection burn executed with zero delta-v deviation.",
+            severity="success",
+            timestamp=now - timedelta(days=44)
+        ),
+        MissionEvent(
+            mission_id=m1.id,
+            event_type="landing",
+            title="Touchdown at Octavia E. Butler Landing Corridor",
+            description="Successful atmospheric entry, descent and powered landing on Jezero crater floor.",
+            severity="success",
+            timestamp=now - timedelta(days=42),
+            coordinates_lat=18.4447,
+            coordinates_lon=77.4508
+        ),
+        MissionEvent(
+            mission_id=m1.id,
+            astronaut_id=a1.id,
+            event_type="exploration",
+            title="First Crewed EVA Ingress onto Delta Front",
+            description="Cmdr. Abhay Pratap Singh and Dr. Vance conducted 4.2-hour geological traverse.",
+            severity="info",
+            timestamp=now - timedelta(days=35),
+            coordinates_lat=18.425,
+            coordinates_lon=77.410
+        ),
+        MissionEvent(
+            mission_id=m1.id,
+            astronaut_id=a1.id,
+            event_type="mineral_discovery",
+            title="Discovery: 4.85 kg Iron-Rich Smectite Clay",
+            description="Extracted sealed core sample from Tenby formation scarp. High biosignature potential.",
+            severity="success",
+            timestamp=now - timedelta(days=12),
+            coordinates_lat=18.412,
+            coordinates_lon=77.395
+        ),
+        MissionEvent(
+            mission_id=m1.id,
+            astronaut_id=a3.id,
+            event_type="health_warning",
+            title="Astronaut Biometric Warning: Elevated Heart Rate (118 BPM)",
+            description="Lt. Chen registered high exertion during boulder extraction on 18-degree slope. Comm advised 10-minute rest stop.",
+            severity="warning",
+            timestamp=now - timedelta(minutes=25),
+            coordinates_lat=18.435,
+            coordinates_lon=77.465
+        )
+    ]
+    db.add_all(events_data)
+    db.commit()
+    print("[Seeder] Successfully populated Mission Control astronaut telemetry and mineral discoveries!")

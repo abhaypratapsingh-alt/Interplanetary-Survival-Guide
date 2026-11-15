@@ -16,6 +16,7 @@ from app.routers import (
     logs,
     settings as settings_router,
     auth,
+    mission_control,
 )
 
 # Create database tables
@@ -58,6 +59,7 @@ app.include_router(telemetry.router, prefix=settings.API_V1_STR)
 app.include_router(logs.router, prefix=settings.API_V1_STR)
 app.include_router(settings_router.router, prefix=settings.API_V1_STR)
 app.include_router(auth.router, prefix=settings.API_V1_STR)
+app.include_router(mission_control.router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 def root():
